@@ -1,0 +1,87 @@
+name: Build and Release on Tag
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [x86_64-unknown-linux-gnu, x86_64-pc-windows-gnu]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install mingw-w64 (for Windows target)
+        if: matrix.target == 'x86_64-pc-windows-gnu'
+        run: sudo apt-get install -y mingw-w64
+
+      - name: Install target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Build project
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package artifacts
+        run: |
+          mkdir -p release
+          if [[ "${{ matrix.target }}" == "x86_64-unknown-linux-gnu" ]]; then
+            cp target/${{ matrix.target }}/release/aicheck release/aicheck-x86_64-unknown-linux-gnu
+          else
+            cp target/${{ matrix.target }}/release/aicheck.exe release/aicheck-x86_64-pc-windows-gnu.exe
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: binaries
+          path: release/
+
+  release:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: binaries
+          path: release/
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: release/aicheck-x86_64-unknown-linux-gnu
+          asset_name: aicheck-x86_64-unknown-linux-gnu
+          asset_content_type: application/octet-stream
+
+      - name: Upload Release Assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: release/aicheck-x86_64-pc-windows-gnu.exe
+          asset_name: aicheck-x86_64-pc-windows-gnu.exe
+          asset_content_type: application/octet-stream
