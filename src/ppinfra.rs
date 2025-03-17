@@ -6,22 +6,13 @@ use tracing::instrument;
 use crate::errors::AppError;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct UserBalanceRespone {
-    pub is_available: bool,
-    pub balance_infos: Vec<BalanceInfo>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 pub struct BalanceInfo {
-    pub currency: String,
-    pub total_balance: String,
-    pub granted_balance: String,
-    pub topped_up_balance: String,
+    credit_balance: f64,
 }
 
 #[instrument]
 pub async fn get_balance(key: &str, client: Client) -> anyhow::Result<Response> {
-    let url = "https://api.deepseek.com/user/balance";
+    let url = "https://api.ppinfra.com/v3/user";
     let resp = client
         .get(url)
         .header("Authorization", format!("Bearer {key}"))
@@ -31,13 +22,14 @@ pub async fn get_balance(key: &str, client: Client) -> anyhow::Result<Response> 
     Ok(resp)
 }
 
+#[instrument]
 pub async fn total_balance(resp: anyhow::Result<Response>) -> anyhow::Result<f64> {
     let resp = resp?;
     let status_code = resp.status();
     let text = resp.text().await?;
-    let info = serde_json::from_str::<UserBalanceRespone>(&text)
-        .map_err(|_| AppError::ResponseError(format!("`{status_code}`: `{text}`")))?;
-    let banlance_info = &info.balance_infos[0];
-    let total = banlance_info.total_balance.parse::<f64>()?;
+    tracing::debug!("`{status_code}`: `{text}`");
+    let info = serde_json::from_str::<BalanceInfo>(&text)
+        .map_err(|e| AppError::ResponseError(format!("`{status_code}`: `{text}`, {:?}", e)))?;
+    let total = info.credit_balance;
     Ok(total)
 }

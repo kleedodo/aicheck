@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use anyhow::Ok;
 use reqwest::{Client, Response};
 use serde::{Deserialize, Serialize};
@@ -31,7 +29,7 @@ pub struct UserInfo {
     total_balance: String,
 }
 #[instrument]
-pub async fn get_userinfo(key: &str, client: Arc<Client>) -> anyhow::Result<Response> {
+pub async fn get_userinfo(key: &str, client: Client) -> anyhow::Result<Response> {
     let url = "https://api.siliconflow.cn/v1/user/info";
     let resp = client
         .get(url)
