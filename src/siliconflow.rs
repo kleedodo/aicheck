@@ -25,8 +25,8 @@ pub struct UserInfo {
     status: String,
     introduction: String,
     role: String,
-    charge_balance: String,
-    total_balance: String,
+    pub charge_balance: String,
+    pub total_balance: String,
 }
 #[instrument]
 pub async fn get_userinfo(key: &str, client: Client) -> anyhow::Result<Response> {
@@ -39,7 +39,7 @@ pub async fn get_userinfo(key: &str, client: Client) -> anyhow::Result<Response>
     Ok(resp)
 }
 
-pub async fn total_balance(resp: anyhow::Result<Response>) -> anyhow::Result<f64> {
+pub async fn userinfo(resp: anyhow::Result<Response>) -> anyhow::Result<UserInfo> {
     let resp = resp?;
     let status_code = resp.status();
     let text = resp
@@ -48,6 +48,5 @@ pub async fn total_balance(resp: anyhow::Result<Response>) -> anyhow::Result<f64
         .map_err(|e| AppError::ResponseError(format!("{:?}", e)))?;
     let resp = serde_json::from_str::<UserInfoResponse>(&text)
         .map_err(|_| AppError::ResponseError(format!("`{status_code}`: `{text}`")))?;
-    let total = resp.data.total_balance.parse::<f64>()?;
-    Ok(total)
+    Ok(resp.data)
 }

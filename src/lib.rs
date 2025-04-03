@@ -30,23 +30,29 @@ pub async fn check_resp(
     bar: ProgressBar,
 ) -> anyhow::Result<()> {
     let mut total = 0_f64;
+    let mut total_pro = 0_f64;
     let mut have_banlance = Vec::new();
     let mut no_balance = Vec::new();
     let mut unknow = Vec::new();
     let mut results = Vec::new();
+    let mut pro_banlace = Vec::new();
     for resp in responses.into_iter() {
         let (key, resp) = resp;
         match channel_type {
-            KeyType::Siliconflow => match siliconflow::total_balance(resp).await {
-                Ok(balance) => {
-                    if balance > 0_f64 {
-                        total += balance;
+            KeyType::Siliconflow => match siliconflow::userinfo(resp).await {
+                Ok(user) => {
+                    let charge_balance = user.charge_balance.parse::<f64>().unwrap_or_default();
+                    let total_balance = user.total_balance.parse::<f64>().unwrap_or_default();
+                    if charge_balance > 0_f64 {
+                        pro_banlace.push(key);
+                        total_pro += charge_balance;
+                    } else if total_balance > 0_f64 {
+                        total += total_balance;
                         have_banlance.push(key);
                     } else {
                         no_balance.push(key);
                     }
-
-                    results.push(format!("{key}, {balance}"));
+                    results.push(format!("{key}, {total_balance}, {charge_balance}"));
                 }
                 Err(err) => {
                     unknow.push(key);
@@ -109,14 +115,21 @@ pub async fn check_resp(
 
     save_to_file(&have_banlance, "keys").await?;
     save_to_file(&no_balance, "no_balance_keys").await?;
+    save_to_file(&pro_banlace, "pro_keys").await?;
     save_to_file(&unknow, "401_keys").await?;
     bar.finish();
     tracing::info!("详细：+++++++++++++++++++++++++++++++++++++++++++++");
     for key in results {
         println!("{key}");
     }
-    if channel_type != KeyType::Gemini {
-        println!("total: {total}");
+    match channel_type {
+        KeyType::Siliconflow => {
+            println!("total: {total}, total pro: {total_pro}");
+        }
+        KeyType::Deepseek | KeyType::Ppinfra => {
+            println!("total: {total}");
+        }
+        _ => {}
     }
     Ok(())
 }
