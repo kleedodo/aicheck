@@ -46,7 +46,8 @@ pub async fn check_resp(
                     if charge_balance > 0_f64 {
                         pro_banlace.push(key);
                         total_pro += charge_balance;
-                    } else if total_balance > 0_f64 {
+                    }
+                    if total_balance > 0_f64 {
                         total += total_balance;
                         have_banlance.push(key);
                     } else {
