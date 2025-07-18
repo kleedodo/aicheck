@@ -16,10 +16,11 @@ pub enum KeyType {
     Ppinfra,
 }
 pub async fn save_to_file(keys: &[&str], filename: &str) -> anyhow::Result<()> {
-    let mut all_key = keys.join("\n");
-    if !all_key.is_empty() {
-        all_key.push('\n');
+    if keys.is_empty() {
+        return Ok(());
     }
+    let mut all_key = keys.join("\n");
+    all_key.push('\n');
     tokio::fs::write(filename, all_key.as_bytes()).await?;
     Ok(())
 }
@@ -36,11 +37,16 @@ pub async fn check_resp(
     let mut unknow = Vec::new();
     let mut results = Vec::new();
     let mut pro_banlace = Vec::new();
+    let mut disable_keys = Vec::new();
     for resp in responses.into_iter() {
         let (key, resp) = resp;
         match channel_type {
             KeyType::Siliconflow => match siliconflow::userinfo(resp).await {
                 Ok(user) => {
+                    if user.status == "disable" {
+                        disable_keys.push(key);
+                        continue;
+                    }
                     let charge_balance = user.charge_balance.parse::<f64>().unwrap_or_default();
                     let total_balance = user.total_balance.parse::<f64>().unwrap_or_default();
                     if charge_balance > 0_f64 {
@@ -118,6 +124,7 @@ pub async fn check_resp(
     save_to_file(&no_balance, "no_balance_keys").await?;
     save_to_file(&pro_banlace, "pro_keys").await?;
     save_to_file(&unknow, "401_keys").await?;
+    save_to_file(&disable_keys, "disable_keys").await?;
     bar.finish();
     tracing::info!("详细：+++++++++++++++++++++++++++++++++++++++++++++");
     for key in results {

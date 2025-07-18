@@ -29,7 +29,7 @@ pub async fn total_balance(resp: anyhow::Result<Response>) -> anyhow::Result<f64
     let text = resp.text().await?;
     tracing::debug!("`{status_code}`: `{text}`");
     let info = serde_json::from_str::<BalanceInfo>(&text)
-        .map_err(|e| AppError::ResponseError(format!("`{status_code}`: `{text}`, {:?}", e)))?;
+        .map_err(|e| AppError::ResponseError(format!("`{status_code}`: `{text}`, {e:?}")))?;
     let total = info.credit_balance;
     Ok(total)
 }

@@ -22,7 +22,7 @@ pub struct UserInfo {
     email: String,
     is_admin: bool,
     pub balance: String,
-    status: String,
+    pub status: String,
     introduction: String,
     role: String,
     pub charge_balance: String,
@@ -45,7 +45,7 @@ pub async fn userinfo(resp: anyhow::Result<Response>) -> anyhow::Result<UserInfo
     let text = resp
         .text()
         .await
-        .map_err(|e| AppError::ResponseError(format!("{:?}", e)))?;
+        .map_err(|e| AppError::ResponseError(format!("{e:?}")))?;
     let resp = serde_json::from_str::<UserInfoResponse>(&text)
         .map_err(|_| AppError::ResponseError(format!("`{status_code}`: `{text}`")))?;
     Ok(resp.data)
