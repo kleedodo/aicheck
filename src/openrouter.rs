@@ -11,12 +11,17 @@ use crate::save_to_file;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct BalanceInfo {
-    credit_balance: f64,
+    pub data: Data,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Data {
+    total_credits: f64,
 }
 
 #[instrument(skip_all)]
 async fn get_balance(key: &str, client: Client) -> anyhow::Result<BalanceInfo> {
-    let url = "https://api.ppinfra.com/v3/user";
+    let url = "https://openrouter.ai/api/v1/credits";
     let resp = client
         .get(url)
         .header("Authorization", format!("Bearer {key}"))
@@ -26,8 +31,9 @@ async fn get_balance(key: &str, client: Client) -> anyhow::Result<BalanceInfo> {
         let text = resp.text().await?;
         return Err(anyhow::anyhow!(text));
     }
-    let info = resp.json::<BalanceInfo>().await?;
-    Ok(info)
+    let user_balance = resp.json::<BalanceInfo>().await?;
+
+    Ok(user_balance)
 }
 
 #[instrument(skip_all)]
@@ -66,7 +72,7 @@ async fn check_resp(resp: Vec<(String, anyhow::Result<BalanceInfo>)>) -> anyhow:
     for (key, resp) in resp.iter() {
         match resp {
             Ok(user) => {
-                let total_balance = user.credit_balance;
+                let total_balance = user.data.total_credits;
                 if total_balance > 0_f64 {
                     have_banlance_keys.push(key);
                     total += total_balance;
@@ -83,7 +89,7 @@ async fn check_resp(resp: Vec<(String, anyhow::Result<BalanceInfo>)>) -> anyhow:
         }
     }
 
-    let prefix = "ppinfra";
+    let prefix = "openrouter";
     save_to_file(have_banlance_keys, &format!("{prefix}_key")).await?;
     save_to_file(no_balance_keys, &format!("{prefix}_no_balance_keys")).await?;
     save_to_file(invalid_keys, &format!("{prefix}_invalid_keys")).await?;
