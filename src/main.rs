@@ -16,7 +16,7 @@ struct Cli {
     #[arg(value_parser = check_file_exists)]
     keys_file: PathBuf,
     #[arg(short, long)]
-    query_per_sec: Option<u32>,
+    query_per_sec: Option<usize>,
     #[command(subcommand)]
     command: Commands,
 }
@@ -54,9 +54,11 @@ async fn main() -> anyhow::Result<()> {
         .init();
     let cli = Cli::parse();
     let contents = tokio::fs::read_to_string(&cli.keys_file).await?;
+    let query_per_sec = cli.query_per_sec.unwrap_or(3);
     let client = ClientBuilder::new()
         .http1_title_case_headers()
         .connect_timeout(Duration::from_secs(30))
+        .pool_max_idle_per_host(query_per_sec.clamp(5, 64))
         .build()?;
     tracing::info!("正在检查...");
     let keys = contents
@@ -66,7 +68,6 @@ async fn main() -> anyhow::Result<()> {
         .filter(|k| !k.starts_with("#"))
         .map(String::from)
         .collect::<Vec<_>>();
-    let query_per_sec = cli.query_per_sec.unwrap_or(3);
     match &cli.command {
         Commands::Siliconflow => siliconflow::check(keys, query_per_sec, client).await?,
         Commands::Deepseek => deepseek::check(keys, query_per_sec, client).await?,

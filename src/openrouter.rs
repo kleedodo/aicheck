@@ -37,7 +37,7 @@ async fn get_balance(key: &str, client: Client) -> anyhow::Result<BalanceInfo> {
 }
 
 #[instrument(skip_all)]
-pub async fn check(keys: Vec<String>, query_per_sec: u32, client: Client) -> anyhow::Result<()> {
+pub async fn check(keys: Vec<String>, query_per_sec: usize, client: Client) -> anyhow::Result<()> {
     let bar = ProgressBar::new(keys.len() as u64);
     let tasks = keys.into_iter().map(|key| {
         let client = client.clone();
@@ -52,7 +52,8 @@ pub async fn check(keys: Vec<String>, query_per_sec: u32, client: Client) -> any
     let interval = tokio::time::interval(Duration::from_secs_f64(interval_tick));
     let throttled_tasks = IntervalStream::new(interval).zip(futures::stream::iter(tasks));
     let resp = throttled_tasks
-        .then(|(_, task)| task)
+        .map(|(_, task)| task)
+        .buffer_unordered(query_per_sec)
         .collect::<Vec<_>>()
         .await;
     bar.finish();
