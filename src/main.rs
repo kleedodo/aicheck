@@ -58,7 +58,7 @@ async fn main() -> anyhow::Result<()> {
     let client = ClientBuilder::new()
         .http1_title_case_headers()
         .connect_timeout(Duration::from_secs(30))
-        .pool_max_idle_per_host(query_per_sec.clamp(5, 64))
+        .pool_max_idle_per_host(query_per_sec)
         .build()?;
     tracing::info!("正在检查...");
     let keys = contents
