@@ -79,6 +79,8 @@ pub async fn check(
 
 #[instrument(skip_all)]
 async fn check_resp(resp: Vec<(String, anyhow::Result<GeminiResp>)>) -> anyhow::Result<()> {
+    tracing::info!("开始分类...");
+    let bar = ProgressBar::new(resp.len() as u64);
     let mut have_banlance_keys = Vec::new();
     let mut ratelimit_keys = Vec::new();
     let mut next_month_ratelimit_keys = Vec::new();
@@ -112,6 +114,7 @@ async fn check_resp(resp: Vec<(String, anyhow::Result<GeminiResp>)>) -> anyhow::
                 continue;
             }
         }
+        bar.inc(1);
     }
 
     let prefix = "gemini";
@@ -126,6 +129,7 @@ async fn check_resp(resp: Vec<(String, anyhow::Result<GeminiResp>)>) -> anyhow::
     save_to_file(unknow_error_keys, &format!("{prefix}_unknow_err_key")).await?;
     save_to_file(location_err_keys, &format!("{prefix}_location_err_key")).await?;
     save_to_file(detail, &format!("{prefix}_detail.csv")).await?;
-
+    bar.finish();
+    tracing::info!("全部完成");
     Ok(())
 }
