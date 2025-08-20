@@ -93,11 +93,12 @@ async fn check_resp(resp: Vec<(String, anyhow::Result<GeminiResp>)>) -> anyhow::
                 match gemini_resp {
                     GeminiResp { status: 200, .. } => have_banlance_keys.push(key),
                     GeminiResp { status: 429, text } if text.contains("Quota exceeded for quota metric 'Generate Content API requests per minute'") => next_month_ratelimit_keys.push(key),
+                    GeminiResp { status: 403, text} if !text.contains("PERMISSION_DENIED") => location_err_keys.push(key),
                     GeminiResp { status: 400, text} if text.contains("location is not supported") => location_err_keys.push(key),
                     GeminiResp { status: 429, ..} => ratelimit_keys.push(key),
+                    GeminiResp { status: 403, text} if text.contains("PERMISSION_DENIED")  => invalid_keys.push(key),
                     GeminiResp { status: 400, ..} |
-                    GeminiResp { status: 401, ..} |
-                    GeminiResp { status: 403, ..}  => invalid_keys.push(key),
+                    GeminiResp { status: 401, ..} => invalid_keys.push(key),
                     _ => unknow_error_keys.push(key),
                 };
                 detail.push(format!(
