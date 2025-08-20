@@ -83,6 +83,7 @@ async fn check_resp(resp: Vec<(String, anyhow::Result<GeminiResp>)>) -> anyhow::
     let mut ratelimit_keys = Vec::new();
     let mut next_month_ratelimit_keys = Vec::new();
     let mut invalid_keys = Vec::new();
+    let mut location_err_keys = Vec::new();
     let mut unknow_error_keys = Vec::new();
     let mut detail = Vec::new();
     detail.push("key, status_code, text".to_string());
@@ -92,6 +93,7 @@ async fn check_resp(resp: Vec<(String, anyhow::Result<GeminiResp>)>) -> anyhow::
                 match gemini_resp {
                     GeminiResp { status: 200, .. } => have_banlance_keys.push(key),
                     GeminiResp { status: 429, text } if text.contains("Quota exceeded for quota metric 'Generate Content API requests per minute'") => next_month_ratelimit_keys.push(key),
+                    GeminiResp { status: 400, text} if text.contains("location is not supported") => location_err_keys.push(key),
                     GeminiResp { status: 429, ..} => ratelimit_keys.push(key),
                     GeminiResp { status: 400, ..} |
                     GeminiResp { status: 401, ..} |
@@ -121,6 +123,7 @@ async fn check_resp(resp: Vec<(String, anyhow::Result<GeminiResp>)>) -> anyhow::
     .await?;
     save_to_file(invalid_keys, &format!("{prefix}_invalid_keys")).await?;
     save_to_file(unknow_error_keys, &format!("{prefix}_unknow_err_key")).await?;
+    save_to_file(location_err_keys, &format!("{prefix}_location_err_key")).await?;
     save_to_file(detail, &format!("{prefix}_detail.csv")).await?;
 
     Ok(())
