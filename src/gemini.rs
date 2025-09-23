@@ -73,17 +73,14 @@ pub async fn check(
         .await;
     bar.finish();
     check_resp(resp).await?;
-
+    tracing::info!("done");
     Ok(())
 }
 
 #[instrument(skip_all)]
 async fn check_resp(resp: Vec<(String, anyhow::Result<GeminiResp>)>) -> anyhow::Result<()> {
-    tracing::info!("开始分类...");
-    let bar = ProgressBar::new(resp.len() as u64);
     let mut have_banlance_keys = Vec::new();
     let mut ratelimit_keys = Vec::new();
-    let mut next_month_ratelimit_keys = Vec::new();
     let mut invalid_keys = Vec::new();
     let mut location_err_keys = Vec::new();
     let mut unknow_error_keys = Vec::new();
@@ -94,13 +91,13 @@ async fn check_resp(resp: Vec<(String, anyhow::Result<GeminiResp>)>) -> anyhow::
             Ok(gemini_resp) => {
                 match gemini_resp {
                     GeminiResp { status: 200, .. } => have_banlance_keys.push(key),
-                    GeminiResp { status: 429, text } if text.contains("Quota exceeded for quota metric 'Generate Content API requests per minute'") => next_month_ratelimit_keys.push(key),
                     GeminiResp { status: 403, text} if !text.contains("PERMISSION_DENIED") => location_err_keys.push(key),
                     GeminiResp { status: 400, text} if text.contains("location is not supported") => location_err_keys.push(key),
-                    GeminiResp { status: 429, ..} => ratelimit_keys.push(key),
+                    GeminiResp { status: 429, text } if text.contains("Quota exceeded for quota metric 'Generate Content API requests per minute'") => invalid_keys.push(key),
                     GeminiResp { status: 403, text} if text.contains("PERMISSION_DENIED")  => invalid_keys.push(key),
                     GeminiResp { status: 400, ..} |
                     GeminiResp { status: 401, ..} => invalid_keys.push(key),
+                    GeminiResp { status: 429, ..} => ratelimit_keys.push(key),
                     _ => unknow_error_keys.push(key),
                 };
                 detail.push(format!(
@@ -114,22 +111,14 @@ async fn check_resp(resp: Vec<(String, anyhow::Result<GeminiResp>)>) -> anyhow::
                 continue;
             }
         }
-        bar.inc(1);
     }
 
     let prefix = "gemini";
     save_to_file(have_banlance_keys, &format!("{prefix}_key")).await?;
     save_to_file(ratelimit_keys, &format!("{prefix}_429_keys")).await?;
-    save_to_file(
-        next_month_ratelimit_keys,
-        &format!("{prefix}_429_next_month_keys"),
-    )
-    .await?;
     save_to_file(invalid_keys, &format!("{prefix}_invalid_keys")).await?;
     save_to_file(unknow_error_keys, &format!("{prefix}_unknow_err_key")).await?;
     save_to_file(location_err_keys, &format!("{prefix}_location_err_key")).await?;
     save_to_file(detail, &format!("{prefix}_detail.csv")).await?;
-    bar.finish();
-    tracing::info!("全部完成");
     Ok(())
 }
