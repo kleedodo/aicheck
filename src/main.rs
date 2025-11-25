@@ -57,8 +57,8 @@ async fn main() -> anyhow::Result<()> {
     let query_per_sec = cli.query_per_sec.unwrap_or(3);
     let client = ClientBuilder::new()
         .http1_title_case_headers()
-        .connect_timeout(Duration::from_secs(30))
-        .timeout(Duration::from_secs(300))
+        .connect_timeout(Duration::from_secs(10))
+        .timeout(Duration::from_secs(60))
         .pool_max_idle_per_host(query_per_sec)
         .build()?;
     tracing::info!("正在检查...");
