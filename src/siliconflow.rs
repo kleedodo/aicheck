@@ -72,6 +72,7 @@ async fn check_resp(resp: Vec<(String, anyhow::Result<UserInfo>)>) -> anyhow::Re
     let mut pro_keys = Vec::new();
     let mut have_banlance_keys = Vec::new();
     let mut no_balance_keys = Vec::new();
+    let mut ne_balance_keys = Vec::new();
     let mut disable_keys = Vec::new();
     let mut invalid_keys = Vec::new();
     let mut detail = Vec::new();
@@ -90,11 +91,15 @@ async fn check_resp(resp: Vec<(String, anyhow::Result<UserInfo>)>) -> anyhow::Re
                     pro_keys.push(key);
                     total_pro += charge_balance;
                 }
-                if total_balance > 0_f64 {
-                    have_banlance_keys.push(key);
-                    total += total_balance;
-                } else {
-                    no_balance_keys.push(key);
+                match total_balance {
+                    0.5.. => {
+                        have_banlance_keys.push(key);
+                        total += total_balance;
+                    }
+                    0.0..0.5 => {
+                        no_balance_keys.push(key);
+                    }
+                    _ => ne_balance_keys.push(key),
                 }
                 detail.push(format!("{key}, {charge_balance}, {total_balance}"));
             }
@@ -109,6 +114,7 @@ async fn check_resp(resp: Vec<(String, anyhow::Result<UserInfo>)>) -> anyhow::Re
     save_to_file(pro_keys, &format!("{prefix}_pro_key")).await?;
     save_to_file(have_banlance_keys, &format!("{prefix}_key")).await?;
     save_to_file(no_balance_keys, &format!("{prefix}_no_balance_keys")).await?;
+    save_to_file(ne_balance_keys, &format!("{prefix}_neg_balance_keys")).await?;
     save_to_file(disable_keys, &format!("{prefix}_disable_keys")).await?;
     save_to_file(invalid_keys, &format!("{prefix}_invalid_keys")).await?;
     save_to_file(detail, &format!("{prefix}_detail.csv")).await?;
