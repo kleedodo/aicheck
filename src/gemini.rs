@@ -84,6 +84,7 @@ async fn check_resp(resp: Vec<(String, anyhow::Result<GeminiResp>)>) -> anyhow::
     let mut invalid_keys = Vec::new();
     let mut location_err_keys = Vec::new();
     let mut unknow_error_keys = Vec::new();
+    let mut gemma3_only_keys = Vec::new();
     let mut detail = Vec::new();
     detail.push("key, status_code, text".to_string());
     for (key, resp) in resp.iter() {
@@ -91,6 +92,7 @@ async fn check_resp(resp: Vec<(String, anyhow::Result<GeminiResp>)>) -> anyhow::
             Ok(gemini_resp) => {
                 match gemini_resp {
                     GeminiResp { status: 200, .. } => have_banlance_keys.push(key),
+                    GeminiResp { status: 403, text} if text.contains("reported as leaked")  => gemma3_only_keys.push(key),
                     GeminiResp { status: 403, text} if !text.contains("PERMISSION_DENIED") => location_err_keys.push(key),
                     GeminiResp { status: 400, text} if text.contains("location is not supported") => location_err_keys.push(key),
                     GeminiResp { status: 429, text } if text.contains("Quota exceeded for quota metric 'Generate Content API requests per minute'") => invalid_keys.push(key),
@@ -117,6 +119,7 @@ async fn check_resp(resp: Vec<(String, anyhow::Result<GeminiResp>)>) -> anyhow::
     save_to_file(have_banlance_keys, &format!("{prefix}_key")).await?;
     save_to_file(ratelimit_keys, &format!("{prefix}_429_keys")).await?;
     save_to_file(invalid_keys, &format!("{prefix}_invalid_keys")).await?;
+    save_to_file(gemma3_only_keys, &format!("{prefix}_gemma3_only_keys")).await?;
     save_to_file(unknow_error_keys, &format!("{prefix}_unknow_err_key")).await?;
     save_to_file(location_err_keys, &format!("{prefix}_location_err_key")).await?;
     save_to_file(detail, &format!("{prefix}_detail.csv")).await?;
